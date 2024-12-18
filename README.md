@@ -295,6 +295,9 @@ torch.save(pretrained_weights, "detr-r50_%d.pth"%num_class)
 
 ref: https://ashhhi.github.io/post/2024-09-06-detr/
 
+安装panopticapi
+`pip install git+https://github.com/cocodataset/panopticapi.git`
+
 # License
 DETR is released under the Apache 2.0 license. Please see the [LICENSE](LICENSE) file for more information.
 
