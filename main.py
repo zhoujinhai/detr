@@ -91,6 +91,7 @@ def get_args_parser():
                         help='device to use for training / testing')
     parser.add_argument('--seed', default=42, type=int)
     parser.add_argument('--resume', default='', help='resume from checkpoint')
+    parser.add_argument('--strict', action="store_false", help="set strict when load_state_dict")
     parser.add_argument('--start_epoch', default=0, type=int, metavar='N',
                         help='start epoch')
     parser.add_argument('--eval', action='store_true')
@@ -176,7 +177,12 @@ def main(args):
                 args.resume, map_location='cpu', check_hash=True)
         else:
             checkpoint = torch.load(args.resume, map_location='cpu')
-        model_without_ddp.load_state_dict(checkpoint['model'])
+            if not args.strict:
+                del checkpoint["model"]["class_embed.weight"]
+                del checkpoint["model"]["class_embed.bias"]
+                del checkpoint["model"]["query_embed.weight"]
+        model_without_ddp.load_state_dict(checkpoint['model'], strict=args.strict)
+        print("load model {} is success!".format(args.resume))
         if not args.eval and 'optimizer' in checkpoint and 'lr_scheduler' in checkpoint and 'epoch' in checkpoint:
             optimizer.load_state_dict(checkpoint['optimizer'])
             lr_scheduler.load_state_dict(checkpoint['lr_scheduler'])
