@@ -297,6 +297,18 @@ ref: https://ashhhi.github.io/post/2024-09-06-detr/
 安装panopticapi
 `pip install git+https://github.com/cocodataset/panopticapi.git`
 
+调整代码
+1. 移除engine.py中的评估
+   ```python
+   coco_evaluator = None
+   # coco_evaluator = CocoEvaluator(base_ds, iou_types)  # 去除评估
+   ```
+
+2. 修改models/detr.py中的类别数
+    ```python
+   num_classes = 2 if args.dataset_file != 'coco' else 91
+   ```
+
 训练
 ```bash
 python -m torch.distributed.launch --nproc_per_node=1 --use_env main.py --tooth_path /home/jinhai_zhou/data/2D_seg/ --dataset_file tooth --output_dir ./output/path/box_model --masks --resume "./models/detr-r50-e632da11.pth" --strict
