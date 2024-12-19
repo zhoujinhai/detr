@@ -300,7 +300,7 @@ ref: https://ashhhi.github.io/post/2024-09-06-detr/
 
 训练
 ```bash
-python -m torch.distributed.launch --nproc_per_node=1 --use_env main.py --tooth_path /home/heygears/jinhai_zhou/data/2D_seg/ --dataset_file tooth --output_dir ./output/path/box_model --masks
+python -m torch.distributed.launch --nproc_per_node=1 --use_env main.py --tooth_path /home/jinhai_zhou/data/2D_seg/ --dataset_file tooth --output_dir ./output/path/box_model --masks
 ```
 
 # License
