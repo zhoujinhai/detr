@@ -264,22 +264,21 @@ For instance segmentation only, simply remove the `dataset_file` and `coco_panop
 ### 预训练权重加载
 ```python
 if args.resume:
-if args.resume.startswith('https'):
-checkpoint = torch.hub.load_state_dict_from_url(
-args.resume, map_location='cpu', check_hash=True)
-else:
-checkpoint = torch.load(args.resume, map_location='cpu')
-# ==============================================================
-# 这一段是修改了的，去除多余的参数，并将load_state_dict设置为strict=False，这样它便会只加载模型结构相同部分的预训练参数
-del checkpoint["model"]["class_embed.weight"]
-del checkpoint["model"]["class_embed.bias"]
-del checkpoint["model"]["query_embed.weight"]
-model_without_ddp.load_state_dict(checkpoint['model'], strict=False)
-# ==============================================================
-if not args.eval and 'optimizer' in checkpoint and 'lr_scheduler' in checkpoint and 'epoch' in checkpoint:
-optimizer.load_state_dict(checkpoint['optimizer'])
-lr_scheduler.load_state_dict(checkpoint['lr_scheduler'])
-args.start_epoch = checkpoint['epoch'] + 1
+    if args.resume.startswith('https'):
+        checkpoint = torch.hub.load_state_dict_from_url(args.resume, map_location='cpu', check_hash=True)
+    else:
+        checkpoint = torch.load(args.resume, map_location='cpu')
+        # ==============================================================
+        # 这一段是修改了的，去除多余的参数，并将load_state_dict设置为strict=False，这样它便会只加载模型结构相同部分的预训练参数
+        del checkpoint["model"]["class_embed.weight"]
+        del checkpoint["model"]["class_embed.bias"]
+        del checkpoint["model"]["query_embed.weight"]
+    model_without_ddp.load_state_dict(checkpoint['model'], strict=False)
+    # ==============================================================
+    if not args.eval and 'optimizer' in checkpoint and 'lr_scheduler' in checkpoint and 'epoch' in checkpoint:
+        optimizer.load_state_dict(checkpoint['optimizer'])
+        lr_scheduler.load_state_dict(checkpoint['lr_scheduler'])
+        args.start_epoch = checkpoint['epoch'] + 1
 ```
 或者
 ```python
