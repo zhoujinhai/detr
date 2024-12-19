@@ -256,7 +256,7 @@ For instance segmentation, you can simply train a normal box model (or used a pr
 Once you have a box model checkpoint, you need to freeze it, and train the segmentation head in isolation.
 For panoptic segmentation you can train on a single node with 8 gpus for 25 epochs:
 ```
-python -m torch.distributed.launch --nproc_per_node=8 --use_env main.py --masks --epochs 25 --lr_drop 15 --coco_path /path/to/coco  --coco_panoptic_path /path/to/coco_panoptic  --dataset_file coco_panoptic --frozen_weights /output/path/box_model/checkpoint.pth --output_dir /output/path/segm_model
+python -m torch.distributed.launch --nproc_per_node=8 --use_env main.py --masks --epochs 25 --lr_drop 15 --coco_path /path/to/coco  --coco_panoptic_path /path/to/coco_panoptic  --dataset_file coco_panoptic --frozen_weights /output/path/box_model/checkpoint.pth --output_dir /output/path/segm_model 
 ```
 For instance segmentation only, simply remove the `dataset_file` and `coco_panoptic_path` arguments from the above command line.
 
@@ -299,7 +299,7 @@ ref: https://ashhhi.github.io/post/2024-09-06-detr/
 
 训练
 ```bash
-python -m torch.distributed.launch --nproc_per_node=1 --use_env main.py --tooth_path /home/jinhai_zhou/data/2D_seg/ --dataset_file tooth --output_dir ./output/path/box_model --masks
+python -m torch.distributed.launch --nproc_per_node=1 --use_env main.py --tooth_path /home/jinhai_zhou/data/2D_seg/ --dataset_file tooth --output_dir ./output/path/box_model --masks --resume "./models/detr-r50-e632da11.pth" --strict
 ```
 
 # License
