@@ -314,6 +314,19 @@ ref: https://ashhhi.github.io/post/2024-09-06-detr/
 python -m torch.distributed.launch --nproc_per_node=1 --use_env main.py --tooth_path /home/jinhai_zhou/data/2D_seg/ --dataset_file tooth --output_dir ./output/path/box_model --masks --resume "./models/detr-r50-e632da11.pth" --strict
 ```
 
+- 分割
+  先训练检测部分，然后再训练分割头
+  ```python
+  # 冻结检测部分的参数
+    for param in model.parameters():
+    param.requires_grad = False
+
+    # 解冻分割头部分的参数
+    # 假设分割头是model.sem_seg_head
+    for param in model.sem_seg_head.parameters():
+    param.requires_grad = True
+  ```
+
 # License
 DETR is released under the Apache 2.0 license. Please see the [LICENSE](LICENSE) file for more information.
 
