@@ -149,3 +149,53 @@ def evaluate(model, criterion, postprocessors, data_loader, base_ds, device, out
         stats['PQ_th'] = panoptic_res["Things"]
         stats['PQ_st'] = panoptic_res["Stuff"]
     return stats, coco_evaluator
+
+
+@torch.no_grad()
+def predict(model, criterion, postprocessors, data_loader, base_ds, device, output_dir):
+    model.eval()
+    criterion.eval() 
+
+    all_results = []
+    for samples, targets in data_loader:
+        samples = samples.to(device)
+        targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
+
+        outputs = model(samples) 
+
+        orig_target_sizes = torch.stack([t["orig_size"] for t in targets], dim=0)
+        results = postprocessors['bbox'](outputs, orig_target_sizes)
+        if 'segm' in postprocessors.keys():
+            target_sizes = torch.stack([t["size"] for t in targets], dim=0)
+            results = postprocessors['segm'](results, outputs, orig_target_sizes, target_sizes)
+        res = {target['image_id'].item(): output for target, output in zip(targets, results)}
+        print("res: ", res)
+        all_results.append(res) 
+     
+    return all_results
+
+
+@torch.no_grad()
+def predict1(model, criterion, postprocessors, data_loader, base_ds, device, output_dir):
+    model.eval()
+    criterion.eval()
+
+    for samples, targets in data_loader:
+        samples = samples.to(device)
+        targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
+        outputs = model(samples)
+        for i, tensor in enumerate(samples.tensors):
+            img = tensor
+            break
+		# 反Normalization，这个mean和std是ImageNet数据集上做pretrain时候的常用参数，原代码也用了这两个值，可以在数据增强那部分看到
+        mean = [0.485, 0.456, 0.406]
+        std = [0.229, 0.224, 0.225]
+        img = img.cpu().clone().detach().numpy()
+        img = np.transpose(img, (1, 2, 0))
+        img = img * np.array(std) + np.array(mean)
+        img = np.clip(img, 0, 1)
+        img = (img * 255).astype(np.uint8)
+        img_cv2 = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)  # 将NumPy数组转换为OpenCV的Mat对象
+        bbox = outputs['pred_boxes'].cpu().detach().numpy()[0]
+        # bbox = targets[0]['boxes'].cpu().numpy()
+        img_height, img_width, _ = img_cv
