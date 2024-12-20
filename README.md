@@ -319,12 +319,12 @@ python -m torch.distributed.launch --nproc_per_node=1 --use_env main.py --tooth_
   ```python
   # 冻结检测部分的参数
     for param in model.parameters():
-    param.requires_grad = False
+       param.requires_grad = False
 
     # 解冻分割头部分的参数
     # 假设分割头是model.sem_seg_head
     for param in model.sem_seg_head.parameters():
-    param.requires_grad = True
+       param.requires_grad = True
   ```
 
 # License
