@@ -13,7 +13,7 @@ from torch.utils.data import DataLoader, DistributedSampler
 import datasets
 import util.misc as utils
 from datasets import build_dataset, get_coco_api_from_dataset
-from engine import evaluate, train_one_epoch
+from engine import evaluate, train_one_epoch, predict
 from models import build_model
 
 
@@ -95,6 +95,7 @@ def get_args_parser():
     parser.add_argument('--start_epoch', default=0, type=int, metavar='N',
                         help='start epoch')
     parser.add_argument('--eval', action='store_true')
+    parser.add_argument('--predict', action='store_true')
     parser.add_argument('--num_workers', default=2, type=int)
 
     # distributed training parameters
@@ -177,13 +178,13 @@ def main(args):
                 args.resume, map_location='cpu', check_hash=True)
         else:
             checkpoint = torch.load(args.resume, map_location='cpu')
-            if not args.strict:
+            if not args.strict and not args.eval and not args.predict:
                 del checkpoint["model"]["class_embed.weight"]
                 del checkpoint["model"]["class_embed.bias"]
                 del checkpoint["model"]["query_embed.weight"]
         model_without_ddp.load_state_dict(checkpoint['model'], strict=args.strict)
         print("load model {} is success!".format(args.resume))
-        if not args.eval and 'optimizer' in checkpoint and 'lr_scheduler' in checkpoint and 'epoch' in checkpoint:
+        if not args.predict and not args.eval and 'optimizer' in checkpoint and 'lr_scheduler' in checkpoint and 'epoch' in checkpoint:
             optimizer.load_state_dict(checkpoint['optimizer'])
             lr_scheduler.load_state_dict(checkpoint['lr_scheduler'])
             args.start_epoch = checkpoint['epoch'] + 1
@@ -193,6 +194,10 @@ def main(args):
                                               data_loader_val, base_ds, device, args.output_dir)
         if args.output_dir:
             utils.save_on_master(coco_evaluator.coco_eval["bbox"].eval, output_dir / "eval.pth")
+        return
+    if args.predict:
+        results = predict(model, criterion, postprocessors, data_loader_val, base_ds, device, args.output_dir)
+        print("results: ", results)
         return
 
     print("Start training")
