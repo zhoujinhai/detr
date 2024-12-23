@@ -327,6 +327,11 @@ python -m torch.distributed.launch --nproc_per_node=1 --use_env main.py --tooth_
        param.requires_grad = True
   ```
 
+测试
+```bash
+python predict.py --resume ./output/path/box_model/checkpoint0999.pth --img_dirs  /home/jinhai_zhou/data/2D_seg/bankou_teeth/val/JPEGImages --enc_layers 4 --dec_layers 4 --num_queries 18 --device cpu --dataset_file tooth --output_dir ./output/test
+```
+
 # License
 DETR is released under the Apache 2.0 license. Please see the [LICENSE](LICENSE) file for more information.
 
