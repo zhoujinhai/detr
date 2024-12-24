@@ -219,6 +219,19 @@ def main(args):
             out_path = Path(output_dir) / img_path.name
             print("out_path: ", out_path)
             plot_results(im, scores, boxes, out_path)
+        img_paths = Path(args.img_dirs).glob("*.png")
+        # print("loads {} images".format(len(list(img_paths))))
+        for idx, img_path in enumerate(img_paths):
+            print(img_path)
+            im = Image.open(img_path)
+            if im.mode == 'RGBA':
+                im = im.convert('RGB')
+            scores, boxes = detect(im, model, transform=transform)
+            print(" scores: ", scores)
+            print("boxes: ", boxes)
+            out_path = Path(output_dir) / img_path.name
+            print("out_path: ", out_path)
+            plot_results(im, scores, boxes, out_path)
     # print("results: ", results)
     return
 
