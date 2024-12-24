@@ -327,6 +327,39 @@ python -m torch.distributed.launch --nproc_per_node=1 --use_env main.py --tooth_
        param.requires_grad = True
   ```
 
+可视化
+先把log.txt进行转换
+```python
+from torch.utils.tensorboard import SummaryWriter
+import ast
+
+# 创建一个 SummaryWriter 实例
+writer = SummaryWriter('./my_summary_writer')
+
+# 读取 .txt 文件并解析每一行为字典
+with open('./path/box_model_teeth/log.txt', 'r') as file:
+    global_step = 0
+    for line in file:
+        # 使用 ast.literal_eval 安全地解析字符串为字典
+        try:
+            data_dict = ast.literal_eval(line.strip())
+            # 将字典内容写入日志
+            for key, value in data_dict.items():
+                writer.add_scalar(key, value, global_step=global_step)
+            global_step += 1
+        except (SyntaxError, ValueError):
+            print(f"Error parsing line: {line.strip()}")
+
+# 关闭 SummaryWriter
+writer.close()
+```
+
+```bash
+tensorboard --logdir=/home/jinhai_zhou/learn/detr/output/my_summary_writer/
+```
+![image](https://github.com/user-attachments/assets/b870c8d5-274f-4882-90dc-6703422afeed)
+
+
 测试
 ```bash
 python predict.py --resume ./output/path/box_model/checkpoint0999.pth --img_dirs  /home/jinhai_zhou/data/2D_seg/bankou_teeth/val/JPEGImages --enc_layers 4 --dec_layers 4 --num_queries 18 --device cpu --dataset_file tooth --output_dir ./output/test
