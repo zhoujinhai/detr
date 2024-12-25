@@ -317,15 +317,10 @@ python -m torch.distributed.launch --nproc_per_node=1 --use_env main.py --tooth_
 - 分割
   先训练检测部分，然后再训练分割头
   ```python
-  # 冻结检测部分的参数
-    for param in model.parameters():
-       param.requires_grad = False
-
-    # 解冻分割头部分的参数
-    # 假设分割头是model.sem_seg_head
-    for param in model.sem_seg_head.parameters():
-       param.requires_grad = True
+  python -m torch.distributed.launch --nproc_per_node=1 --use_env main.py --tooth_path /home/jinhai_zhou/data/2D_seg/all_LR --dataset_file tooth --output_dir ./output/path/seg_model_LR --frozen_weights "./output/path/box_model_LR/checkpoint0399.pth" --strict --enc_layers 4 --dec_layers 4 --batch_size 2 --num_queries 18 --epoch
+ 500 --masks
   ```
+  
 
 可视化
 先把log.txt进行转换
