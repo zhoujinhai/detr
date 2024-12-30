@@ -139,6 +139,115 @@ def detect(im, model, transform, threshold=0.7):
     bboxes_scaled = rescale_bboxes(outputs['pred_boxes'][0, keep], im.size)
     return probas[keep], bboxes_scaled
 
+def to_tuple(tup):
+            if isinstance(tup, tuple):
+                return tup
+            return tuple(tup.cpu().tolist())
+
+
+def id2rgb(id_map):
+    if isinstance(id_map, np.ndarray):
+        id_map_copy = id_map.copy()
+        rgb_shape = tuple(list(id_map.shape) + [3])
+        rgb_map = np.zeros(rgb_shape, dtype=np.uint8)
+        for i in range(3):
+            rgb_map[..., i] = id_map_copy # % 256
+            # id_map_copy //= 256
+        return rgb_map
+    color = []
+    for _ in range(3):
+        color.append(id_map % 256)
+        id_map //= 256
+    return color
+    # This helper function creates the final panoptic segmentation image
+    # It also returns the area of the masks that appears on the image
+
+    m_id = masks.transpose(0, 1).softmax(-1)
+
+    if m_id.shape[-1] == 0:
+        # We didn't detect any mask :(
+        m_id = torch.zeros((h, w), dtype=torch.long, device=m_id.device)
+    else:
+        m_id = m_id.argmax(-1).view(h, w)
+
+    if dedup:
+        # Merge the masks corresponding to the same stuff class
+        for equiv in stuff_equiv_classes.values():
+            if len(equiv) > 1:
+                for eq_id in equiv:
+                    m_id.masked_fill_(m_id.eq(eq_id), equiv[0])
+
+    final_h, final_w = to_tuple(target_size)
+
+    seg_img = Image.fromarray(id2rgb(m_id.view(h, w).cpu().numpy()))
+    seg_img = seg_img.resize(size=(final_w, final_h), resample=Image.NEAREST)
+
+    np_seg_img = (
+        torch.ByteTensor(torch.ByteStorage.from_buffer(seg_img.tobytes())).view(final_h, final_w, 3).numpy()
+    )
+    m_id = torch.from_numpy(rgb2id(np_seg_img))
+
+    area = []
+    for i in range(len(scores)):
+        area.append(m_id.eq(i).sum().item())
+    return area, seg_img
+
+
+def rgb2id(color):
+    if isinstance(color, np.ndarray) and len(color.shape) == 3:
+        if color.dtype == np.uint8:
+            color = color.astype(np.int32)
+        return color[:, :, 0] + 256 * color[:, :, 1] + 256 * 256 * color[:, :, 2]
+    return int(color[0] + 256 * color[1] + 256 * 256 * color[2])
+
+
+def detectSeg(im, model, transform, threshold=0.7):
+    # mean-std normalize the input image (batch-size: 1)
+    img = transform(im).unsqueeze(0)
+    print("image.shape:", img.shape, img.size, im.size) 
+    # propagate through the model
+    outputs = model(img)
+    # print("outputs: ", outputs)
+    # keep only predictions with 0.7+ confidence  
+    probas = outputs['pred_logits'].softmax(-1)[0, :, :-1]  # -1是no object 
+    keep = probas.max(-1).values > threshold 
+    scores, cur_classes = outputs['pred_logits'].softmax(-1).max(-1) 
+    # print("scores: ", scores, scores.shape, " class: ", cur_classes, cur_classes.shape)
+    # keep1 = cur_classes[0].ne(outputs["pred_logits"].shape[-1] - 1) & (scores > threshold)  
+    # print("keep:", keep, "keep1: ", keep1)
+    cur_classes = cur_classes[0, keep] 
+    print("cur_classes: ", cur_classes, cur_classes.shape)
+    # convert boxes from [0; 1] to image scales
+    bboxes_scaled = rescale_bboxes(outputs['pred_boxes'][0, keep], im.size)
+    print("bboxes_scaled: ", bboxes_scaled, bboxes_scaled.shape)
+    masks = outputs["pred_masks"][0, keep]
+    # print("masks: ", masks.shape)
+    masks = interpolate(masks[:, None], (im.size[1], im.size[0]), mode="bilinear").squeeze(1)  
+    # print("masks shape: ", masks.shape)
+
+    outputs_masks = (masks.sigmoid() > 0.5) * 255
+
+    # # Remove pixel that out of box
+    masks_scaled = np.zeros_like(outputs_masks.detach().numpy()) 
+    print("--------------", masks_scaled.shape)
+    for idx in range(masks.shape[0]):
+        cur_mask = outputs_masks[idx].detach().numpy()
+        cur_box = bboxes_scaled[idx]
+        rows_to_keep = slice(int(cur_box[1]), int(cur_box[3]))  # 指定行
+        cols_to_keep = slice(int(cur_box[0]), int(cur_box[2]))  # 指定列
+
+        # 创建一个与cur_mask大小相同的全0矩阵
+        zero_matrix = np.zeros_like(cur_mask) 
+        zero_matrix[rows_to_keep, cols_to_keep] = cur_mask[rows_to_keep, cols_to_keep]
+        masks_scaled[idx] = zero_matrix
+
+     # for idx in range(masks_scaled.shape[0]):
+     #     cur_mask = masks_scaled[idx] 
+     #     seg_img = Image.fromarray(id2rgb(cur_mask)) 
+     #     seg_img.save("./output/seg299/test" + str(idx) + ".png") 
+    
+     return probas[keep], bboxes_scaled, masks_scaled
+ 
 
 def plot_results(pil_img, prob, boxes, output):
     CLASSES = [
@@ -161,6 +270,53 @@ def plot_results(pil_img, prob, boxes, output):
     plt.axis('off')
     plt.savefig(output)
     # plt.show()
+
+
+def plot_seg_results(pil_img, prob, boxes, masks, output):
+    # CLASSES = [
+    #     'N/A', 'teeth'
+    # ]
+    CLASSES = [
+        'N/A', 'L8', 'L7', 'L6', 'L5', 'L4', 'L3', 'L2', 'L1',
+        'R1', 'R2', 'R3', 'R4', 'R5', 'R6', 'R7', 'R8'
+        # 'N/A', 'tooth', 'tooth', 'tooth', 'tooth', 'tooth', 'tooth', 'tooth', 'tooth',
+        # 'tooth', 'tooth', 'tooth', 'tooth', 'tooth', 'tooth', 'tooth', 'tooth'
+    ]
+
+    # colors for visualization
+    COLORS = [[0.000, 0.447, 0.741], [0.850, 0.325, 0.098], [0.929, 0.694, 0.125],
+            [0.494, 0.184, 0.556], [0.466, 0.674, 0.188], [0.301, 0.745, 0.933]] 
+    COLORS = COLORS * len(masks)
+     
+    rgb_shape = tuple(list(masks.shape[1:]) + [3])
+    rgb_map = np.zeros(rgb_shape)
+    for idx, mask in enumerate(masks):
+        id_map = mask.copy()
+        for i in range(3):
+            rgb_map[..., i] += id_map * COLORS[idx][i]  
+    
+    img_masks = Image.fromarray(rgb_map.astype(np.uint8)) 
+    # img_masks.save("./output/seg299/masks.png")
+    # merge mask 
+     
+    pil_img = Image.blend(img_masks, pil_img, alpha=0.5) 
+    # pil_img.save("./output/seg299/merge.png") 
+      
+    plt.figure(figsize=(16,10))
+    plt.imshow(pil_img)
+    ax = plt.gca()
+    for p, (xmin, ymin, xmax, ymax), c in zip(prob, boxes.tolist(), COLORS):
+        ax.add_patch(plt.Rectangle((xmin, ymin), xmax - xmin, ymax - ymin,
+                                   fill=False, color=c, linewidth=3))
+        cl = p.argmax()
+        text = f'{CLASSES[cl]}: {p[cl]:0.2f}'
+        ax.text(xmin, ymin, text, fontsize=15,
+                bbox=dict(facecolor='yellow', alpha=0.5))
+    plt.axis('off')
+    plt.savefig(output)
+    plt.close()
+    # plt.show()
+
 
 def main(args):
     utils.init_distributed_mode(args)
@@ -213,25 +369,40 @@ def main(args):
         for idx, img_path in enumerate(img_paths):
             print(img_path)
             im = Image.open(img_path)
-            scores, boxes = detect(im, model, transform=transform)
-            print(" scores: ", scores)
-            print("boxes: ", boxes)
+            masks = None
+            if args.masks:
+                scores, boxes, masks = detectSeg(im, model, transform=transform)
+            else: 
+                scores, boxes = detect(im, model, transform=transform)
+            # print(" scores: ", scores)
+            # print("boxes: ", boxes)
             out_path = Path(output_dir) / img_path.name
             print("out_path: ", out_path)
-            plot_results(im, scores, boxes, out_path)
+            if args.masks:
+                plot_seg_results(im, scores, boxes, masks, out_path)
+            else:
+                plot_results(im, scores, boxes, out_path)
         img_paths = Path(args.img_dirs).glob("*.png")
         # print("loads {} images".format(len(list(img_paths))))
         for idx, img_path in enumerate(img_paths):
             print(img_path)
             im = Image.open(img_path)
+            print("im.shape", im.size)
             if im.mode == 'RGBA':
                 im = im.convert('RGB')
-            scores, boxes = detect(im, model, transform=transform)
-            print(" scores: ", scores)
-            print("boxes: ", boxes)
+            masks = None
+            if args.masks:
+                scores, boxes, masks = detectSeg(im, model, transform=transform)
+            else: 
+                scores, boxes = detect(im, model, transform=transform)
+            # print(" scores: ", scores)
+            # print("boxes: ", boxes)
             out_path = Path(output_dir) / img_path.name
             print("out_path: ", out_path)
-            plot_results(im, scores, boxes, out_path)
+            if args.masks:
+                plot_seg_results(im, scores, boxes, masks, out_path)
+            else:
+                plot_results(im, scores, boxes, out_path)
     # print("results: ", results)
     return
 
