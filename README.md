@@ -317,8 +317,7 @@ python -m torch.distributed.launch --nproc_per_node=1 --use_env main.py --tooth_
 - 分割
   先训练检测部分，然后再训练分割头
   ```python
-  python -m torch.distributed.launch --nproc_per_node=1 --use_env main.py --tooth_path /home/jinhai_zhou/data/2D_seg/all_LR --dataset_file tooth --output_dir ./output/path/seg_model_LR --frozen_weights "./output/path/box_model_LR/checkpoint0399.pth" --strict --enc_layers 4 --dec_layers 4 --batch_size 2 --num_queries 18 --epoch
- 500 --masks
+  python -m torch.distributed.launch --nproc_per_node=1 --use_env main.py --tooth_path /home/jinhai_zhou/data/2D_seg/all_LR --dataset_file tooth --output_dir ./output/path/seg_model_LR --frozen_weights "./output/path/box_model_LR/checkpoint0399.pth" --strict --enc_layers 4 --dec_layers 4 --batch_size 2 --num_queries 18 --epoch 500 --masks
   ```
   
 
@@ -358,7 +357,10 @@ tensorboard --logdir=/home/jinhai_zhou/learn/detr/output/my_summary_writer/
 测试
 ```bash
 python predict.py --resume ./output/path/box_model/checkpoint0999.pth --img_dirs  /home/jinhai_zhou/data/2D_seg/bankou_teeth/val/JPEGImages --enc_layers 4 --dec_layers 4 --num_queries 18 --device cpu --dataset_file tooth --output_dir ./output/test
+
+# 分割 需要加上 --masks
 ```
+
 
 # License
 DETR is released under the Apache 2.0 license. Please see the [LICENSE](LICENSE) file for more information.
